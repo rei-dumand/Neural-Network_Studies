@@ -87,15 +87,18 @@ class Net(nn.Module):
         x = self.pool2(x)
         x = F.relu(self.conv3(x))
         x = self.pool3(x)
-        # x = x.flatten(start_dim=1)        # flattening happens here 
+        x = x.flatten(start_dim=1)        # flattening happens here 
         # print(x.shape)                    # printing out to see what our shape is.
         x = F.relu(self.fc1(x))
         x = self.fc2(x)
         return F.softmax(x, dim=1)
 
-net = Net()
-# net.forward(torch.randn(1, 1, 50, 50))    # we run this once to pass dummy values to .forward
-#                                           # which allows us to see what the shape of our last conv is.
+
+device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
+
+net = Net().to(device)
+net.forward(torch.randn(1, 1, 50, 50).to(device))  # we run this once to pass dummy values to .forward
+                                        # which allows us to see what the shape of our last conv is.
 
 
 optimizer = optim.Adam(net.parameters(), lr=0.001)
@@ -107,7 +110,6 @@ y = torch.Tensor([i[1] for i in training_data])
 
 VAL_PCT = 0.1   # We choose 10% of the training data to be used as validation data
 val_size = int(len(X)*VAL_PCT)
-# print(val_size)
 
 train_X = X[:-val_size]
 train_y = y[:-val_size]
@@ -115,18 +117,19 @@ train_y = y[:-val_size]
 test_X = X[-val_size:]
 test_y = y[-val_size:]
 
-# print(len(train_X))
-# print(len(test_X))
-
 BATCH_SIZE = 100
 
-EPOCHS = 1
+EPOCHS = 2
 
 for epoch in range(EPOCHS):
+    print(f"Starting Epoch {epoch}")
     for i in tqdm(range(0, len(train_X), BATCH_SIZE)):
-        print(i, i+BATCH_SIZE)
+        # print(i, i + BATCH_SIZE)
         batch_X = train_X[i:i+BATCH_SIZE].view(-1, 1, 50, 50)
         batch_y = train_y[i:i+BATCH_SIZE]
+
+        batch_X = batch_X.to(device)
+        batch_y = batch_y.to(device)
 
         net.zero_grad()
         outputs = net(batch_X)
@@ -134,4 +137,16 @@ for epoch in range(EPOCHS):
         loss.backward()
         optimizer.step()
 
-print(loss)
+correct = 0
+total = 0
+with torch.no_grad():
+    for i in tqdm(range(len(test_X))):
+        real_class = torch.argmax(test_y[i])
+        net_out = net(test_X[i].view(-1, 1, 50, 50).to(device))[0]
+        predicted_class = torch.argmax(net_out)
+        if predicted_class == real_class:
+            correct += 1
+        total += 1
+        pass
+print("Accuracy:", round(correct/total, 3))
+print("Loss:", loss)
