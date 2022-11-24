@@ -1,4 +1,6 @@
 env/
 MNIST/
 PetImages/
-*data/
+data/
+figures/
+logs/
